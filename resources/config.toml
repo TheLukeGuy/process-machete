@@ -1,0 +1,28 @@
+# The amount of time to wait for the doomed processes to spawn before giving up and terminating.
+# If this is set to zero, we will never give up until we have bloodshed.
+# All time spans should follow this simple format: https://docs.rs/humantime/2.1.0/humantime/fn.parse_duration.html
+max_wait_time = "1minute"
+# The amount of time to wait in between each check (so that we don't bring the CPU down with the processes!)
+refresh_wait_time = "1second"
+# The amount of time to wait after a process is spawned to kill it. This can be overridden on a per-process basis.
+# This will be checked in intervals of `refresh_wait_time`.
+kill_wait_time = "5seconds"
+# Whether processes should be allowed to clean themselves up (or potentially avoid death) before being killed.
+# This probably does nothing if you're using a non-*nix system. Also, you can override it on a per-process basis.
+kill_gracefully = false
+
+[[processes]]
+# You can define processes either by specifying their `exact` name...
+exact = "SignalRgb.exe"
+
+[[processes]]
+# ...or by specifying a string that the process name `contains`! You can't have both though. That would be weird.
+contains = "RgbLauncher"
+# You can optionally specify a `limit` which will make sure that no more than X matching processes are killed.
+limit = 1
+# You can also optionally override the global `kill_wait_time` option for the specific process.
+kill_wait_time = "500ms"
+# Similarly, you can optionally override the global `kill_gracefully` option for the specific process.
+kill_gracefully = true
+
+# That's it! Very lightweight.
