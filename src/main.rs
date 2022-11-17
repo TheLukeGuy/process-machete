@@ -1,9 +1,12 @@
 use anyhow::{Context, Result};
-use log::{debug, info, warn, LevelFilter};
+use log::{debug, error, info, warn, LevelFilter};
 use process_machete::config::Config;
-use simplelog::{ColorChoice, ConfigBuilder, TermLogger, TerminalMode};
-use std::path::PathBuf;
-use std::{env, fs, process};
+use simplelog::{
+    ColorChoice, CombinedLogger, ConfigBuilder, TermLogger, TerminalMode, WriteLogger,
+};
+use std::fs::File;
+use std::path::{Path, PathBuf};
+use std::{convert, env, fs, process};
 
 const DEFAULT_CONFIG: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -12,24 +15,38 @@ const DEFAULT_CONFIG: &str = include_str!(concat!(
 
 fn main() -> Result<()> {
     let debug = cfg!(debug_assertions);
-    init_logging(debug).context("failed to initialize logging")?;
+    let (config_dir_path, config_dir_explanation) =
+        config_dir_and_explanation(debug).context("failed to get the config directory")?;
+
+    init_logging(debug, &config_dir_path).context("failed to initialize logging")?;
+
+    if let Err(error) = logging_main(debug, config_dir_path, config_dir_explanation) {
+        error!("Error: {:?}", error);
+        process::exit(1);
+    }
+    Ok(())
+}
+
+fn logging_main(debug: bool, config_dir_path: PathBuf, config_dir_explanation: &str) -> Result<()> {
     if debug {
         warn!("Debug mode is enabled. Things might behave slightly differently!");
     }
 
-    let config = load_config(debug).context("failed to load the config")?;
+    let config = load_config(&config_dir_path, config_dir_explanation)
+        .context("failed to load the config")?;
     debug!("Deserialized config: {:#?}", config);
 
     process_machete::run(&config)
 }
 
-fn init_logging(debug: bool) -> Result<()> {
+fn init_logging(debug: bool, config_dir_path: &Path) -> Result<()> {
     let level = if debug {
         LevelFilter::Debug
     } else {
         LevelFilter::Info
     };
-    TermLogger::init(
+
+    let term_logger = TermLogger::new(
         level,
         ConfigBuilder::new()
             .set_time_level(LevelFilter::Off)
@@ -38,13 +55,25 @@ fn init_logging(debug: bool) -> Result<()> {
             .build(),
         TerminalMode::Mixed,
         ColorChoice::Auto,
-    )
-    .context("failed to initialize the logger")
+    );
+
+    let file = File::create(config_dir_path.join("latest_log.txt"))
+        .context("failed to create the log file")?;
+    let write_logger = WriteLogger::new(
+        level,
+        ConfigBuilder::new()
+            .set_thread_level(LevelFilter::Off)
+            .set_target_level(LevelFilter::Off)
+            .set_time_offset_to_local()
+            .unwrap_or_else(convert::identity)
+            .build(),
+        file,
+    );
+
+    CombinedLogger::init(vec![term_logger, write_logger]).context("failed to initialize the logger")
 }
 
-fn load_config(debug: bool) -> Result<Config> {
-    let (config_dir_path, config_dir_explanation) =
-        config_dir_and_explanation(debug).context("failed to get the config directory")?;
+fn load_config(config_dir_path: &Path, config_dir_explanation: &str) -> Result<Config> {
     let config_path = config_dir_path.join("config.toml");
     debug!("Config path: {}", config_path.display());
 
