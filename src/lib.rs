@@ -34,9 +34,6 @@ pub fn run(config: &Config) -> Result<()> {
             ProcessCheckOutcome::Killed(count) => {
                 total_kill_count += count;
                 configured_kill_count += 1usize;
-
-                info!("Finished killing processes {}.", process.config.name_match);
-
                 false
             }
         });

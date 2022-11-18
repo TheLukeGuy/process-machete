@@ -1,9 +1,8 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use std::fmt::{Display, Formatter};
+use std::fs;
 use std::path::Path;
 use std::time::Duration;
-use std::{fmt, fs};
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
@@ -43,14 +42,5 @@ impl Config {
             )
         })?;
         toml::from_str(&contents).context("failed to deserialize the config")
-    }
-}
-
-impl Display for ProcessNameMatch {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            ProcessNameMatch::Exact(name) => write!(f, "named \"{}\"", name),
-            ProcessNameMatch::Contains(name) => write!(f, "matching \"{}\"", name),
-        }
     }
 }
