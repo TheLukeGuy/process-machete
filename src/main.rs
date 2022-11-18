@@ -1,42 +1,53 @@
 use anyhow::{Context, Result};
-use log::{debug, error, info, warn, LevelFilter};
+use log::{debug, error, info, log_enabled, warn, Level, LevelFilter};
 use process_machete::config::Config;
 use simplelog::{
     ColorChoice, CombinedLogger, ConfigBuilder, TermLogger, TerminalMode, WriteLogger,
 };
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::{convert, env, fs, process};
+use std::process::ExitCode;
+use std::{convert, env, fs};
 
 const DEFAULT_CONFIG: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/resources/config.toml"
 ));
 
-fn main() -> Result<()> {
+fn main() -> ExitCode {
+    match inner_main() {
+        Err(error) => {
+            if log_enabled!(Level::Error) {
+                error!("Error: {:?}", error);
+            } else {
+                eprintln!("Error: {:?}", error);
+            }
+            ExitCode::FAILURE
+        }
+        Ok(Some(exit_code)) => exit_code,
+        Ok(None) => ExitCode::SUCCESS,
+    }
+}
+
+fn inner_main() -> Result<Option<ExitCode>> {
     let debug = cfg!(debug_assertions);
     let (config_dir_path, config_dir_explanation) =
         config_dir_and_explanation(debug).context("failed to get the config directory")?;
 
     init_logging(debug, &config_dir_path).context("failed to initialize logging")?;
-
-    if let Err(error) = logging_main(debug, config_dir_path, config_dir_explanation) {
-        error!("Error: {:?}", error);
-        process::exit(1);
-    }
-    Ok(())
-}
-
-fn logging_main(debug: bool, config_dir_path: PathBuf, config_dir_explanation: &str) -> Result<()> {
     if debug {
         warn!("Debug mode is enabled. Things might behave slightly differently!");
     }
 
     let config = load_config(&config_dir_path, config_dir_explanation)
         .context("failed to load the config")?;
+    let ConfigLoadOutcome::Loaded(config) = config else {
+        return Ok(Some(ExitCode::FAILURE));
+    };
     debug!("Deserialized config: {:#?}", config);
 
-    process_machete::run(&config)
+    process_machete::run(&config)?;
+    Ok(None)
 }
 
 fn init_logging(debug: bool, config_dir_path: &Path) -> Result<()> {
@@ -73,7 +84,12 @@ fn init_logging(debug: bool, config_dir_path: &Path) -> Result<()> {
     CombinedLogger::init(vec![term_logger, write_logger]).context("failed to initialize the logger")
 }
 
-fn load_config(config_dir_path: &Path, config_dir_explanation: &str) -> Result<Config> {
+enum ConfigLoadOutcome {
+    Loaded(Config),
+    Created,
+}
+
+fn load_config(config_dir_path: &Path, config_dir_explanation: &str) -> Result<ConfigLoadOutcome> {
     let config_path = config_dir_path.join("config.toml");
     debug!("Config path: {}", config_path.display());
 
@@ -89,15 +105,17 @@ fn load_config(config_dir_path: &Path, config_dir_explanation: &str) -> Result<C
             "A default config.toml file has been created in {}. Configure it!",
             config_dir_explanation
         );
-        process::exit(-1);
+        return Ok(ConfigLoadOutcome::Created);
     }
 
-    Config::from_path(&config_path).with_context(|| {
-        format!(
-            "failed to load from the config file at {}",
-            config_path.display()
-        )
-    })
+    Config::from_path(&config_path)
+        .map(ConfigLoadOutcome::Loaded)
+        .with_context(|| {
+            format!(
+                "failed to load from the config file at {}",
+                config_path.display()
+            )
+        })
 }
 
 fn config_dir_and_explanation(debug: bool) -> Result<(PathBuf, &'static str)> {
