@@ -1,3 +1,4 @@
+[killing]
 # The amount of time to wait for the doomed processes to spawn before giving up and terminating.
 # If this is set to zero, we will never give up until we have bloodshed.
 # All time spans should follow this simple format: https://docs.rs/humantime/2.1.0/humantime/fn.parse_duration.html

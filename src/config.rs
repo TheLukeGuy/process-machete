@@ -6,6 +6,13 @@ use std::time::Duration;
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
+    pub killing: KillingConfig,
+    pub logging: LoggingConfig,
+    pub processes: Vec<ProcessConfig>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct KillingConfig {
     #[serde(with = "humantime_serde")]
     pub max_wait_time: Duration,
     #[serde(with = "humantime_serde")]
@@ -13,8 +20,6 @@ pub struct Config {
     #[serde(with = "humantime_serde")]
     pub kill_wait_time: Duration,
     pub kill_gracefully: bool,
-    pub logging: LoggingConfig,
-    pub processes: Vec<ProcessConfig>,
 }
 
 #[derive(Debug, Default, Deserialize)]

@@ -42,7 +42,7 @@ pub fn run(config: &Config) -> Result<()> {
         }
 
         let elapsed_time = Instant::now() - start_time;
-        if elapsed_time + config.refresh_wait_time >= config.max_wait_time {
+        if elapsed_time + config.killing.refresh_wait_time >= config.killing.max_wait_time {
             let len_before_purge = processes.len();
             // Keep the ones that have been spawned but are waiting to be killed
             processes.retain(|process| process.found.is_some());
@@ -59,7 +59,7 @@ pub fn run(config: &Config) -> Result<()> {
                 warn!("Took too long, surrendering after spawned processes are killed. o7");
             }
         }
-        thread::sleep(config.refresh_wait_time);
+        thread::sleep(config.killing.refresh_wait_time);
     }
 
     let percent_killed = ((configured_kill_count as f64) / (start_process_count as f64)) * 100.0;
@@ -127,7 +127,10 @@ impl<'a> WatchedProcess<'a> {
             info!("Found: {} (pid {})", process.name(), process.pid());
         }
 
-        let wait_time = self.config.kill_wait_time.unwrap_or(config.kill_wait_time);
+        let wait_time = self
+            .config
+            .kill_wait_time
+            .unwrap_or(config.killing.kill_wait_time);
         if wait_time.is_zero() {
             let kill_count = self.kill(config, &found);
             return ProcessCheckOutcome::Killed(kill_count);
@@ -146,7 +149,7 @@ impl<'a> WatchedProcess<'a> {
         let kill_gracefully = self
             .config
             .kill_gracefully
-            .unwrap_or(config.kill_gracefully);
+            .unwrap_or(config.killing.kill_gracefully);
         let signal = if !kill_gracefully {
             Signal::Term
         } else {
