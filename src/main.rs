@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use log::{debug, error, info, log_enabled, warn, Level, LevelFilter};
-use process_machete::config::Config;
+use process_machete::config::{Config, LoggingConfig};
 use simplelog::{
-    ColorChoice, CombinedLogger, ConfigBuilder, TermLogger, TerminalMode, WriteLogger,
+    ColorChoice, CombinedLogger, ConfigBuilder, SharedLogger, TermLogger, TerminalMode, WriteLogger,
 };
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -31,17 +31,22 @@ fn main() -> ExitCode {
 
 fn inner_main() -> Result<Option<ExitCode>> {
     let debug = cfg!(debug_assertions);
+
     let (config_dir_path, config_dir_explanation) =
         config_dir_and_explanation(debug).context("failed to get the config directory")?;
+    let config = load_config(&config_dir_path).context("failed to load the config")?;
 
-    init_logging(debug, &config_dir_path).context("failed to initialize logging")?;
+    init_logging(debug, &config_dir_path, config.logging_config())
+        .context("failed to initialize logging")?;
     if debug {
         warn!("Debug mode is enabled. Things might behave slightly differently!");
     }
 
-    let config = load_config(&config_dir_path, config_dir_explanation)
-        .context("failed to load the config")?;
     let ConfigLoadOutcome::Loaded(config) = config else {
+        info!(
+            "A default config.toml file has been created in {}. Configure it!",
+            config_dir_explanation
+        );
         return Ok(Some(ExitCode::FAILURE));
     };
     debug!("Deserialized config: {:#?}", config);
@@ -50,8 +55,12 @@ fn inner_main() -> Result<Option<ExitCode>> {
     Ok(None)
 }
 
-fn init_logging(debug: bool, config_dir_path: &Path) -> Result<()> {
-    let level = if debug {
+fn init_logging(debug: bool, config_dir_path: &Path, config: Option<&LoggingConfig>) -> Result<()> {
+    let config = config.unwrap_or(&LoggingConfig {
+        log_to_file: false,
+        always_debug: false,
+    });
+    let level = if debug || config.always_debug {
         LevelFilter::Debug
     } else {
         LevelFilter::Info
@@ -68,20 +77,26 @@ fn init_logging(debug: bool, config_dir_path: &Path) -> Result<()> {
         ColorChoice::Auto,
     );
 
-    let file = File::create(config_dir_path.join("latest_log.txt"))
-        .context("failed to create the log file")?;
-    let write_logger = WriteLogger::new(
-        level,
-        ConfigBuilder::new()
-            .set_thread_level(LevelFilter::Off)
-            .set_target_level(LevelFilter::Off)
-            .set_time_offset_to_local()
-            .unwrap_or_else(convert::identity)
-            .build(),
-        file,
-    );
+    let loggers: Vec<Box<dyn SharedLogger>> = if config.log_to_file {
+        let file = File::create(config_dir_path.join("latest_log.txt"))
+            .context("failed to create the log file")?;
+        let write_logger = WriteLogger::new(
+            level,
+            ConfigBuilder::new()
+                .set_thread_level(LevelFilter::Off)
+                .set_target_level(LevelFilter::Off)
+                .set_time_offset_to_local()
+                .unwrap_or_else(convert::identity)
+                .build(),
+            file,
+        );
 
-    CombinedLogger::init(vec![term_logger, write_logger]).context("failed to initialize the logger")
+        vec![term_logger, write_logger]
+    } else {
+        vec![term_logger]
+    };
+
+    CombinedLogger::init(loggers).context("failed to initialize the logger")
 }
 
 enum ConfigLoadOutcome {
@@ -89,7 +104,16 @@ enum ConfigLoadOutcome {
     Created,
 }
 
-fn load_config(config_dir_path: &Path, config_dir_explanation: &str) -> Result<ConfigLoadOutcome> {
+impl ConfigLoadOutcome {
+    pub fn logging_config(&self) -> Option<&LoggingConfig> {
+        match self {
+            ConfigLoadOutcome::Loaded(config) => Some(&config.logging),
+            ConfigLoadOutcome::Created => None,
+        }
+    }
+}
+
+fn load_config(config_dir_path: &Path) -> Result<ConfigLoadOutcome> {
     let config_path = config_dir_path.join("config.toml");
     debug!("Config path: {}", config_path.display());
 
@@ -100,11 +124,6 @@ fn load_config(config_dir_path: &Path, config_dir_explanation: &str) -> Result<C
                 config_path.display()
             )
         })?;
-
-        info!(
-            "A default config.toml file has been created in {}. Configure it!",
-            config_dir_explanation
-        );
         return Ok(ConfigLoadOutcome::Created);
     }
 

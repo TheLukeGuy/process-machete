@@ -13,7 +13,14 @@ pub struct Config {
     #[serde(with = "humantime_serde")]
     pub kill_wait_time: Duration,
     pub kill_gracefully: bool,
+    pub logging: LoggingConfig,
     pub processes: Vec<ProcessConfig>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct LoggingConfig {
+    pub log_to_file: bool,
+    pub always_debug: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]

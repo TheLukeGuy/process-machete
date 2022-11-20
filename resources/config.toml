@@ -11,6 +11,14 @@ kill_wait_time = "5seconds"
 # This probably does nothing if you're using a non-*nix system. Also, you can override it on a per-process basis.
 kill_gracefully = false
 
+[logging]
+# Whether log messages should additionally be saved to a latest_log.txt file.
+# This is useful for debugging problems when running as a startup item.
+log_to_file = true
+# Whether debug messages should always be logged.
+# They will always be logged (despite this option) on debug builds, but not logged by default on release builds.
+always_debug = false
+
 [[processes]]
 # You can define processes either by specifying their `exact` name...
 exact = "SignalRgb.exe"
