@@ -117,13 +117,13 @@ fn check_status(status: winapi::um::winreg::LSTATUS) -> Result<()> {
 }
 
 #[cfg(not(windows))]
-fn add_item_inner(exe_path: &OsStr) -> Result<StartupItemOutcome> {
+fn add_item_inner(_exe_path: &OsStr) -> Result<StartupItemOutcome> {
     log::error!("You must add the startup item manually on your operating system! Sorry :(");
     Ok(StartupItemOutcome::Unsupported)
 }
 
 #[cfg(not(windows))]
-fn remove_item_inner(exe_path: &OsStr) -> Result<StartupItemOutcome> {
+fn remove_item_inner(_exe_path: &OsStr) -> Result<StartupItemOutcome> {
     log::error!("You must remove the startup item manually on your operating system! Sorry :(");
     Ok(StartupItemOutcome::Unsupported)
 }
