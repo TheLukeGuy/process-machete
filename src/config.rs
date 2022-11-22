@@ -1,8 +1,14 @@
 use anyhow::{Context, Result};
+use log::debug;
 use serde::Deserialize;
-use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::{env, fs};
+
+const DEFAULT: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/resources/config.toml"
+));
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
@@ -54,5 +60,58 @@ impl Config {
             )
         })?;
         toml::from_str(&contents).context("failed to deserialize the config")
+    }
+}
+
+pub enum ConfigLoadOutcome {
+    Loaded(Config),
+    Created,
+}
+
+impl ConfigLoadOutcome {
+    pub fn logging_config(&self) -> Option<&LoggingConfig> {
+        match self {
+            ConfigLoadOutcome::Loaded(config) => Some(&config.logging),
+            ConfigLoadOutcome::Created => None,
+        }
+    }
+}
+
+pub fn load(config_dir_path: &Path) -> Result<ConfigLoadOutcome> {
+    let config_path = config_dir_path.join("config.toml");
+    debug!("Config path: {}", config_path.display());
+
+    if !config_path.exists() {
+        fs::write(&config_path, DEFAULT).with_context(|| {
+            format!(
+                "failed to write the default config to {}",
+                config_path.display()
+            )
+        })?;
+        return Ok(ConfigLoadOutcome::Created);
+    }
+
+    Config::from_path(&config_path)
+        .map(ConfigLoadOutcome::Loaded)
+        .with_context(|| {
+            format!(
+                "failed to load from the config file at {}",
+                config_path.display()
+            )
+        })
+}
+
+pub fn dir_and_explanation(debug: bool) -> Result<(PathBuf, &'static str)> {
+    if debug {
+        let current_dir_path = env::current_dir()
+            .context("failed to get the path of the current working directory")?;
+        Ok((current_dir_path, "the current folder"))
+    } else {
+        let exe_dir_path = env::current_exe()
+            .context("failed to get the path of the current running executable")?
+            .parent()
+            .context("the executable path has no parent")?
+            .to_path_buf();
+        Ok((exe_dir_path, "the same folder as this executable"))
     }
 }

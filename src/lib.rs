@@ -6,6 +6,7 @@ use std::time::Instant;
 use sysinfo::{Pid, Process, ProcessExt, Signal, System, SystemExt};
 
 pub mod config;
+pub mod logging;
 pub mod startup;
 
 pub fn run(config: &Config) -> Result<()> {
