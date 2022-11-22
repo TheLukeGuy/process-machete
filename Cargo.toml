@@ -6,6 +6,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "=1.0.59"
+clap = { version = "4.0.26", features = ["derive"] }
 humantime = "2.1.0"
 humantime-serde = "1.1.1"
 log = "0.4.17"

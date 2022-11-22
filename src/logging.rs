@@ -22,17 +22,7 @@ pub fn init(debug: bool, config_dir_path: &Path, config: Option<&LoggingConfig>)
         LevelFilter::Info
     };
 
-    let term_logger = TermLogger::new(
-        level,
-        ConfigBuilder::new()
-            .set_time_level(LevelFilter::Off)
-            .set_thread_level(LevelFilter::Off)
-            .set_target_level(LevelFilter::Off)
-            .build(),
-        TerminalMode::Mixed,
-        ColorChoice::Auto,
-    );
-
+    let term_logger = term_logger(level);
     let loggers: Vec<Box<dyn SharedLogger>> = if config.log_to_file {
         let file = File::create(config_dir_path.join("latest_log.txt"))
             .context("failed to create the log file")?;
@@ -53,8 +43,37 @@ pub fn init(debug: bool, config_dir_path: &Path, config: Option<&LoggingConfig>)
     };
 
     CombinedLogger::init(loggers).context("failed to initialize the logger")?;
+
     set_initialized();
     Ok(())
+}
+
+pub fn basic_init(debug: bool) -> Result<()> {
+    let level = if debug {
+        LevelFilter::Debug
+    } else {
+        LevelFilter::Info
+    };
+
+    let logger = term_logger(level);
+    // TermLogger doesn't have an init method, so we have to initialize with a CombinedLogger
+    CombinedLogger::init(vec![logger]).context("failed to initialize the logger")?;
+
+    set_initialized();
+    Ok(())
+}
+
+fn term_logger(level: LevelFilter) -> Box<TermLogger> {
+    TermLogger::new(
+        level,
+        ConfigBuilder::new()
+            .set_time_level(LevelFilter::Off)
+            .set_thread_level(LevelFilter::Off)
+            .set_target_level(LevelFilter::Off)
+            .build(),
+        TerminalMode::Mixed,
+        ColorChoice::Auto,
+    )
 }
 
 pub fn initialized() -> bool {

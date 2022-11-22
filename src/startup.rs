@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::fs;
@@ -6,19 +6,19 @@ use std::path::Path;
 
 pub const SUPPORTED: bool = cfg!(windows);
 
-pub fn add_item(exe_path: impl AsRef<Path>) -> Result<StartupItemOutcome> {
+pub fn add_program(exe_path: impl AsRef<Path>) -> Result<StartupProgramOutcome> {
     let exe_path = exe_path.as_ref();
     let exe_path = prepare_exe_path(exe_path).context("failed to prepare the executable path")?;
-    add_item_inner(&exe_path)
+    add_program_inner(&exe_path)
 }
 
-pub fn remove_item(exe_path: impl AsRef<Path>) -> Result<StartupItemOutcome> {
+pub fn remove_program(exe_path: impl AsRef<Path>) -> Result<StartupProgramOutcome> {
     let exe_path = exe_path.as_ref();
     let exe_path = prepare_exe_path(exe_path).context("failed to prepare the executable path")?;
-    remove_item_inner(&exe_path)
+    remove_program_inner(&exe_path)
 }
 
-pub enum StartupItemOutcome {
+pub enum StartupProgramOutcome {
     Unsupported,
     Succeeded,
 }
@@ -42,11 +42,15 @@ const REGISTRY_KEY_NAME: &str = r"Software\Microsoft\Windows\CurrentVersion\Run"
 const REGISTRY_VALUE_NAME: &str = "Process Machete";
 
 #[cfg(windows)]
-fn add_item_inner(exe_path: &OsStr) -> Result<StartupItemOutcome> {
+fn add_program_inner(exe_path: &OsStr) -> Result<StartupProgramOutcome> {
     use winapi::um::winnt;
     use winapi::um::winreg;
 
-    let exe_path = encode_wide_str(exe_path);
+    let Some(exe_path) = exe_path.to_str() else {
+        bail!("the provided executable path contains invalid unicode sequences");
+    };
+    let command = encode_wide_str(&format!("\"{}\"", exe_path));
+
     let key_name = encode_wide_str(REGISTRY_KEY_NAME);
     let value_name = encode_wide_str(REGISTRY_VALUE_NAME);
 
@@ -72,17 +76,17 @@ fn add_item_inner(exe_path: &OsStr) -> Result<StartupItemOutcome> {
             value_name.as_ptr(),
             0,
             winnt::REG_SZ,
-            exe_path.as_ptr() as *const _,
-            (exe_path.len() * 2) as _,
+            command.as_ptr() as *const _,
+            (command.len() * 2) as _,
         )
     };
     check_status(result).context("failed to set the registry value")?;
 
-    Ok(StartupItemOutcome::Succeeded)
+    Ok(StartupProgramOutcome::Succeeded)
 }
 
 #[cfg(windows)]
-fn remove_item_inner(_exe_path: &OsStr) -> Result<StartupItemOutcome> {
+fn remove_program_inner(_exe_path: &OsStr) -> Result<StartupProgramOutcome> {
     use winapi::um::winreg;
 
     let key_name = encode_wide_str(REGISTRY_KEY_NAME);
@@ -97,17 +101,12 @@ fn remove_item_inner(_exe_path: &OsStr) -> Result<StartupItemOutcome> {
     };
     check_status(result).context("failed to delete the registry value")?;
 
-    Ok(StartupItemOutcome::Succeeded)
+    Ok(StartupProgramOutcome::Succeeded)
 }
 
 #[cfg(windows)]
-fn encode_wide_str(os_str: impl AsRef<OsStr>) -> Vec<u16> {
-    use std::os::windows::ffi::OsStrExt;
-    os_str
-        .as_ref()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect()
+fn encode_wide_str(str: &str) -> Vec<u16> {
+    str.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
 #[cfg(windows)]
@@ -120,13 +119,13 @@ fn check_status(status: winapi::um::winreg::LSTATUS) -> Result<()> {
 }
 
 #[cfg(not(windows))]
-fn add_item_inner(_exe_path: &OsStr) -> Result<StartupItemOutcome> {
-    log::error!("You must add the startup item manually on your operating system! Sorry :(");
-    Ok(StartupItemOutcome::Unsupported)
+fn add_program_inner(_exe_path: &OsStr) -> Result<StartupProgramOutcome> {
+    log::error!("You must add the startup program manually on your operating system! Sorry :(");
+    Ok(StartupProgramOutcome::Unsupported)
 }
 
 #[cfg(not(windows))]
-fn remove_item_inner(_exe_path: &OsStr) -> Result<StartupItemOutcome> {
-    log::error!("You must remove the startup item manually on your operating system! Sorry :(");
-    Ok(StartupItemOutcome::Unsupported)
+fn remove_program_inner(_exe_path: &OsStr) -> Result<StartupProgramOutcome> {
+    log::error!("You must remove the startup program manually on your operating system! Sorry :(");
+    Ok(StartupProgramOutcome::Unsupported)
 }
