@@ -37,7 +37,7 @@ fn inner_main() -> Result<Option<ExitCode>> {
             "A default config.toml file has been created in {}. Configure it!",
             config_dir_explanation
         );
-        return Ok(Some(ExitCode::FAILURE));
+        return Ok(Some(ExitCode::from(-1i8 as u8)));
     };
     debug!("Deserialized config: {:#?}", config);
 
