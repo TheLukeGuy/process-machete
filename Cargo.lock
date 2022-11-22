@@ -185,6 +185,7 @@ dependencies = [
  "simplelog",
  "sysinfo",
  "toml",
+ "winapi",
 ]
 
 [[package]]
