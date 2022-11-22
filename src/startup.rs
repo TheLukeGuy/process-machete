@@ -1,16 +1,19 @@
 use anyhow::{Context, Result};
-use std::ffi::{OsStr, OsString};
+use std::borrow::Cow;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::Path;
 
 pub const SUPPORTED: bool = cfg!(windows);
 
 pub fn add_item(exe_path: impl AsRef<Path>) -> Result<StartupItemOutcome> {
+    let exe_path = exe_path.as_ref();
     let exe_path = prepare_exe_path(exe_path).context("failed to prepare the executable path")?;
     add_item_inner(&exe_path)
 }
 
 pub fn remove_item(exe_path: impl AsRef<Path>) -> Result<StartupItemOutcome> {
+    let exe_path = exe_path.as_ref();
     let exe_path = prepare_exe_path(exe_path).context("failed to prepare the executable path")?;
     remove_item_inner(&exe_path)
 }
@@ -20,15 +23,15 @@ pub enum StartupItemOutcome {
     Succeeded,
 }
 
-fn prepare_exe_path(exe_path: impl AsRef<Path>) -> Result<OsString> {
-    let exe_path = exe_path.as_ref();
+fn prepare_exe_path(exe_path: &Path) -> Result<Cow<OsStr>> {
     let os_string = if !exe_path.is_absolute() {
         fs::canonicalize(exe_path)
             .context("failed to canonicalize the executable path")?
             .as_os_str()
             .to_os_string()
+            .into()
     } else {
-        exe_path.as_os_str().to_os_string()
+        exe_path.as_os_str().into()
     };
     Ok(os_string)
 }
