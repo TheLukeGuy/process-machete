@@ -41,22 +41,24 @@ pub fn run(config: &Config) -> Result<()> {
             break;
         }
 
-        let elapsed_time = Instant::now() - start_time;
-        if elapsed_time + config.killing.refresh_wait_time >= config.killing.max_wait_time {
-            let len_before_purge = processes.len();
-            // Keep the ones that have been spawned but are waiting to be killed
-            processes.retain(|process| process.found.is_some());
+        if !config.killing.max_wait_time.is_zero() {
+            let elapsed_time = Instant::now() - start_time;
+            if elapsed_time + config.killing.refresh_wait_time >= config.killing.max_wait_time {
+                let len_before_purge = processes.len();
+                // Keep the ones that have been spawned but are waiting to be killed
+                processes.retain(|process| process.found.is_some());
 
-            // If there are fewer processes than before, they didn't all spawn in time
-            let we_failed = processes.len() != len_before_purge;
-            if processes.is_empty() {
-                if we_failed {
-                    warn!("Took too long, surrendering. o7");
+                // If there are fewer processes than before, they didn't all spawn in time
+                let we_failed = processes.len() != len_before_purge;
+                if processes.is_empty() {
+                    if we_failed {
+                        warn!("Took too long, surrendering. o7");
+                    }
+                    break;
                 }
-                break;
-            }
-            if we_failed {
-                warn!("Took too long, surrendering after spawned processes are killed. o7");
+                if we_failed {
+                    warn!("Took too long, surrendering after spawned processes are killed. o7");
+                }
             }
         }
         thread::sleep(config.killing.refresh_wait_time);
