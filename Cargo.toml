@@ -16,4 +16,4 @@ sysinfo = "0.26.7"
 toml = "0.5.9"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3.9", features = ["winreg"] }
+winapi = { version = "0.3.9", features = ["winreg", "winuser"] }

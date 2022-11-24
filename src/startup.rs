@@ -18,6 +18,12 @@ pub fn remove_program(exe_path: impl AsRef<Path>) -> Result<StartupProgramOutcom
     remove_program_inner(&exe_path)
 }
 
+pub fn hide_window() -> StartupProgramOutcome {
+    // This doesn't really need a separate "inner" function, but might as well for consistency
+    // It also keeps all errors in this file if we screw up the platform-specific implementations
+    hide_window_inner()
+}
+
 pub enum StartupProgramOutcome {
     Unsupported,
     Succeeded,
@@ -49,7 +55,7 @@ fn add_program_inner(exe_path: &OsStr) -> Result<StartupProgramOutcome> {
     let Some(exe_path) = exe_path.to_str() else {
         bail!("the provided executable path contains invalid unicode sequences");
     };
-    let command = encode_wide_str(&format!("\"{}\"", exe_path));
+    let command = encode_wide_str(&format!("\"{}\" --startup", exe_path));
 
     let key_name = encode_wide_str(REGISTRY_KEY_NAME);
     let value_name = encode_wide_str(REGISTRY_VALUE_NAME);
@@ -105,6 +111,19 @@ fn remove_program_inner(_exe_path: &OsStr) -> Result<StartupProgramOutcome> {
 }
 
 #[cfg(windows)]
+fn hide_window_inner() -> StartupProgramOutcome {
+    use winapi::um::winuser;
+
+    let window = unsafe { winapi::um::wincon::GetConsoleWindow() };
+    if !window.is_null() {
+        unsafe {
+            winuser::ShowWindow(window, winuser::SW_HIDE);
+        }
+    }
+    StartupProgramOutcome::Succeeded
+}
+
+#[cfg(windows)]
 fn encode_wide_str(str: &str) -> Vec<u16> {
     str.encode_utf16().chain(std::iter::once(0)).collect()
 }
@@ -128,4 +147,9 @@ fn add_program_inner(_exe_path: &OsStr) -> Result<StartupProgramOutcome> {
 fn remove_program_inner(_exe_path: &OsStr) -> Result<StartupProgramOutcome> {
     log::error!("You must remove the startup program manually on your operating system! Sorry :(");
     Ok(StartupProgramOutcome::Unsupported)
+}
+
+#[cfg(not(windows))]
+fn hide_window_inner() -> StartupProgramOutcome {
+    StartupProgramOutcome::Unsupported
 }

@@ -28,6 +28,10 @@ fn inner_main() -> Result<Option<ExitCode>> {
     let args = Args::parse();
     if let Some(Command::Startup { command }) = args.command {
         logging::basic_init(debug).context("failed to initialize logging")?;
+        if args.startup {
+            warn!("The --startup flag does nothing with this subcommand!");
+        }
+
         startup_main(command)?;
         return Ok(None);
     }
@@ -50,6 +54,14 @@ fn inner_main() -> Result<Option<ExitCode>> {
         return Ok(Some(ExitCode::from(-1i8 as u8)));
     };
     debug!("Deserialized config: {:#?}", config);
+
+    if args.startup && !debug {
+        if let StartupProgramOutcome::Unsupported = startup::hide_window() {
+            warn!(
+                "The --startup flag is unsupported on your operating system. It won't do anything!"
+            );
+        }
+    }
 
     process_machete::run(&config)?;
     Ok(None)
@@ -79,6 +91,10 @@ fn startup_main(command: StartupCommand) -> Result<()> {
 
 #[derive(Parser)]
 struct Args {
+    /// Indicate that this is being run as a startup program, rather than being manually run
+    #[arg(long, hide = true)]
+    startup: bool,
+
     #[command(subcommand)]
     command: Option<Command>,
 }
