@@ -14,6 +14,21 @@ You *probably* don't need this tool for anything, but there are a few situations
 
 See [config.toml](resources/config.toml). I don't feel like typing them all out here.
 
+## Supported OSes
+
+Thanks to the cross-platform [`sysinfo`](https://crates.io/crates/sysinfo) crate, most major operating systems are supported.
+
+| OS      | Supported | Tested | Startup supported[^1] | Notes                                                                                                                  |
+|---------|-----------|--------|-----------------------|------------------------------------------------------------------------------------------------------------------------|
+| Windows | Yes       | Yes    | Yes                   |                                                                                                                        |
+| Linux   | Yes       | No     | No                    |                                                                                                                        |
+| macOS   | Yes       | No     | No                    |                                                                                                                        |
+| FreeBSD | Yes       | No     | No                    |                                                                                                                        |
+| Android | Probably  | No     | No                    | It should theoretically work on any device, but it *may* require root. Use [Termux](https://termux.dev/en/) or similar |
+| iOS     | Sort of   | No     | No                    | Your device must be jailbroken. Use [NewTerm 2](https://chariz.com/get/newterm) or similar.                            |
+
+[^1]: Even if this is "no", you can still manually add it as a startup program yourself. It just can't be done automatically.
+
 ## Using
 
 1. Run the executable once for it to generate the configuration:
