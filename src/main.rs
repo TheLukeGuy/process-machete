@@ -11,9 +11,9 @@ fn main() -> ExitCode {
     match inner_main() {
         Err(error) => {
             if logging::initialized() {
-                error!("Error: {:?}", error);
+                error!("Internal error: {:?}", error);
             } else {
-                eprintln!("Error: {:?}", error);
+                eprintln!("Internal error: {:?}", error);
             }
             ExitCode::FAILURE
         }
